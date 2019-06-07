@@ -119,7 +119,7 @@ public class AssetManager implements Disposable {
 			setLoader(ShaderProgram.class, new ShaderProgramLoader(resolver));
 			setLoader(Cubemap.class, new CubemapLoader(resolver));
 		}
-		executor = new AsyncExecutor(1);
+		executor = new AsyncExecutor(1, "AssetManager");
 	}
 
 	/** Returns the {@link FileHandleResolver} for which this AssetManager was loaded with.
@@ -463,7 +463,7 @@ public class AssetManager implements Disposable {
 			injected.add(desc.fileName);
 			injectDependency(parentAssetFilename, desc);
 		}
-		injected.clear();
+		injected.clear(32);
 	}
 
 	private synchronized void injectDependency (String parentAssetFilename, AssetDescriptor dependendAssetDesc) {

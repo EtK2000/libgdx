@@ -181,10 +181,9 @@ public class Array<T> implements Iterable<T> {
 		items[second] = firstValue;
 	}
 
-	/** Returns if this array contains value.
+	/** Returns true if this array contains the specified value.
 	 * @param value May be null.
-	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used.
-	 * @return true if array contains value, false if it doesn't */
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used. */
 	public boolean contains (T value, boolean identity) {
 		T[] items = this.items;
 		int i = size - 1;
@@ -195,6 +194,26 @@ public class Array<T> implements Iterable<T> {
 			while (i >= 0)
 				if (value.equals(items[i--])) return true;
 		}
+		return false;
+	}
+
+	/** Returns true if this array contains all the specified values.
+	 * @param values May contains nulls.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used. */
+	public boolean containsAll (Array<? extends T> values, boolean identity) {
+		T[] items = values.items;
+		for (int i = 0, n = values.size; i < n; i++)
+			if (!contains(items[i], identity)) return false;
+		return true;
+	}
+
+	/** Returns true if this array contains any the specified values.
+	 * @param values May contains nulls.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used. */
+	public boolean containsAny (Array<? extends T> values, boolean identity) {
+		T[] items = values.items;
+		for (int i = 0, n = values.size; i < n; i++)
+			if (contains(items[i], identity)) return true;
 		return false;
 	}
 
@@ -275,13 +294,15 @@ public class Array<T> implements Iterable<T> {
 		if (start > end) throw new IndexOutOfBoundsException("start can't be > end: " + start + " > " + end);
 		T[] items = this.items;
 		int count = end - start + 1;
+		int lastIndex = size - count;
 		if (ordered)
 			System.arraycopy(items, start + count, items, start, size - (start + count));
 		else {
-			int lastIndex = this.size - 1;
 			for (int i = 0; i < count; i++)
-				items[start + i] = items[lastIndex - i];
+				items[start + i] = items[lastIndex + i];
 		}
+		for (int i = lastIndex, n = size; i < n; i++)
+			items[i] = null;
 		size -= count;
 	}
 
@@ -337,6 +358,11 @@ public class Array<T> implements Iterable<T> {
 	public T first () {
 		if (size == 0) throw new IllegalStateException("Array is empty.");
 		return items[0];
+	}
+
+	/** Returns true if the array has one or more items. */
+	public boolean notEmpty () {
+		return size > 0;
 	}
 
 	/** Returns true if the array is empty. */
@@ -484,7 +510,7 @@ public class Array<T> implements Iterable<T> {
 		return (T[])toArray(items.getClass().getComponentType());
 	}
 
-	public <V> V[] toArray (Class type) {
+	public <V> V[] toArray (Class<V> type) {
 		V[] result = (V[])ArrayReflection.newInstance(type, size);
 		System.arraycopy(items, 0, result, 0, size);
 		return result;
@@ -502,6 +528,7 @@ public class Array<T> implements Iterable<T> {
 		return h;
 	}
 
+	/** Returns false if either array is unordered. */
 	public boolean equals (Object object) {
 		if (object == this) return true;
 		if (!ordered) return false;
@@ -510,13 +537,26 @@ public class Array<T> implements Iterable<T> {
 		if (!array.ordered) return false;
 		int n = size;
 		if (n != array.size) return false;
-		Object[] items1 = this.items;
-		Object[] items2 = array.items;
+		Object[] items1 = this.items, items2 = array.items;
 		for (int i = 0; i < n; i++) {
-			Object o1 = items1[i];
-			Object o2 = items2[i];
+			Object o1 = items1[i], o2 = items2[i];
 			if (!(o1 == null ? o2 == null : o1.equals(o2))) return false;
 		}
+		return true;
+	}
+
+	/** Uses == for comparison of each item. Returns false if either array is unordered. */
+	public boolean equalsIdentity (Object object) {
+		if (object == this) return true;
+		if (!ordered) return false;
+		if (!(object instanceof Array)) return false;
+		Array array = (Array)object;
+		if (!array.ordered) return false;
+		int n = size;
+		if (n != array.size) return false;
+		Object[] items1 = this.items, items2 = array.items;
+		for (int i = 0; i < n; i++)
+			if (items1[i] != items2[i]) return false;
 		return true;
 	}
 
@@ -548,12 +588,12 @@ public class Array<T> implements Iterable<T> {
 
 	/** @see #Array(Class) */
 	static public <T> Array<T> of (Class<T> arrayType) {
-		return new Array<T>(arrayType);
+		return new Array(arrayType);
 	}
 
 	/** @see #Array(boolean, int, Class) */
 	static public <T> Array<T> of (boolean ordered, int capacity, Class<T> arrayType) {
-		return new Array<T>(ordered, capacity, arrayType);
+		return new Array(ordered, capacity, arrayType);
 	}
 
 	/** @see #Array(Object[]) */

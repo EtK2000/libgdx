@@ -256,18 +256,18 @@ public class TextField extends Widget implements Disableable {
 		float startX = 0;
 		for (int i = 0; i < glyphCount; i++) {
 			if (glyphPositions[i] >= -renderOffset) {
-				visibleTextStart = Math.max(0, i);
+				visibleTextStart = i;
 				startX = glyphPositions[i];
 				break;
 			}
 		}
 
 		// calculate last visible char based on visible width and render offset
-		int length = Math.min(displayText.length(), glyphPositions.length - 1);
-		visibleTextEnd = Math.min(length, cursor + 1);
-		for (; visibleTextEnd <= length; visibleTextEnd++)
-			if (glyphPositions[visibleTextEnd] > startX + visibleWidth) break;
-		visibleTextEnd = Math.max(0, visibleTextEnd - 1);
+		int end = visibleTextStart + 1;
+		float endX = visibleWidth - renderOffset;
+		for (int n = Math.min(displayText.length(), glyphCount); end <= n; end++)
+			if (glyphPositions[end] > endX) break;
+		visibleTextEnd = Math.max(0, end - 1);
 
 		if ((textHAlign & Align.left) == 0) {
 			textOffset = visibleWidth - (glyphPositions[visibleTextEnd] - startX);
@@ -287,14 +287,13 @@ public class TextField extends Widget implements Disableable {
 	}
 
 	private Drawable getBackgroundDrawable () {
-		Stage stage = getStage();
-		boolean focused = stage != null && stage.getKeyboardFocus() == this;
+		boolean focused = hasKeyboardFocus();
 		return (disabled && style.disabledBackground != null) ? style.disabledBackground
 			: ((focused && style.focusedBackground != null) ? style.focusedBackground : style.background);
 	}
 
 	public void draw (Batch batch, float parentAlpha) {
-		boolean focused = getStage() != null && getStage().getKeyboardFocus() == this;
+		boolean focused = hasKeyboardFocus();
 		if (focused != this.focused) {
 			this.focused = focused;
 			blinkTask.cancel();
@@ -343,8 +342,7 @@ public class TextField extends Widget implements Disableable {
 						style.messageFontColor.a * color.a * parentAlpha);
 				} else
 					messageFont.setColor(0.7f, 0.7f, 0.7f, color.a * parentAlpha);
-				messageFont.draw(batch, messageText, x + bgLeftWidth, y + textY + yOffset, 0, messageText.length(),
-					width - bgLeftWidth - bgRightWidth, textHAlign, false, "...");
+				drawMessageText(batch, messageFont, x + bgLeftWidth, y + textY + yOffset, width - bgLeftWidth - bgRightWidth);
 			}
 		} else {
 			font.setColor(fontColor.r, fontColor.g, fontColor.b, fontColor.a * color.a * parentAlpha);
@@ -376,6 +374,10 @@ public class TextField extends Widget implements Disableable {
 
 	protected void drawText (Batch batch, BitmapFont font, float x, float y) {
 		font.draw(batch, displayText, x + textOffset, y, visibleTextStart, visibleTextEnd, 0, Align.left, false);
+	}
+
+	protected void drawMessageText (Batch batch, BitmapFont font, float x, float y, float maxWidth) {
+		font.draw(batch, messageText, x, y, 0, messageText.length(), maxWidth, textHAlign, false, "...");
 	}
 
 	protected void drawCursor (Drawable cursorPatch, Batch batch, BitmapFont font, float x, float y) {
@@ -423,6 +425,9 @@ public class TextField extends Widget implements Disableable {
 		} else
 			fontOffset = 0;
 		glyphPositions.add(x);
+
+		visibleTextStart = Math.min(visibleTextStart, glyphPositions.size);
+		visibleTextEnd = MathUtils.clamp(visibleTextEnd, visibleTextStart, glyphPositions.size);
 
 		if (selectionStart > newDisplayText.length()) selectionStart = textLength;
 	}
@@ -507,7 +512,7 @@ public class TextField extends Widget implements Disableable {
 			TextField textField = current.findNextTextField(stage.getActors(), null, bestCoords, currentCoords, up);
 			if (textField == null) { // Try to wrap around.
 				if (up)
-					currentCoords.set(Float.MIN_VALUE, Float.MIN_VALUE);
+					currentCoords.set(-Float.MAX_VALUE, -Float.MAX_VALUE);
 				else
 					currentCoords.set(Float.MAX_VALUE, Float.MAX_VALUE);
 				textField = current.findNextTextField(stage.getActors(), null, bestCoords, currentCoords, up);
@@ -723,6 +728,10 @@ public class TextField extends Widget implements Disableable {
 		this.textHAlign = alignment;
 	}
 
+	public int getAlignment () {
+		return textHAlign;
+	}
+
 	/** If true, the text in this text field will be shown as bullet characters.
 	 * @see #setPasswordCharacter(char) */
 	public void setPasswordMode (boolean passwordMode) {
@@ -865,8 +874,7 @@ public class TextField extends Widget implements Disableable {
 			blinkTask.cancel();
 			if (focused) Timer.schedule(blinkTask, blinkTime, blinkTime);
 
-			Stage stage = getStage();
-			if (stage == null || stage.getKeyboardFocus() != TextField.this) return false;
+			if (!hasKeyboardFocus()) return false;
 
 			boolean repeat = false;
 			boolean ctrl = UIUtils.ctrl();
@@ -1004,8 +1012,7 @@ public class TextField extends Widget implements Disableable {
 				if (character < 32) return false;
 			}
 
-			Stage stage = getStage();
-			if (stage == null || stage.getKeyboardFocus() != TextField.this) return false;
+			if (!hasKeyboardFocus()) return false;
 
 			if (UIUtils.isMac && Gdx.input.isKeyPressed(Keys.SYM)) return true;
 
